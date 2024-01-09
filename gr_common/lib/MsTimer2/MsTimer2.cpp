@@ -32,19 +32,28 @@
  *  Modified 17 Jun 2014 by Nozomu Fujita : TPU1.TGRA に設定する値を修正
  */
 
+#include <Arduino.h>
 #include <MsTimer2.h>
 #if defined (__RX600__)
 #include "rx63n/iodefine.h"
 #include "rx63n/interrupt_handlers.h"
 #endif
 
+#ifdef USING_001_MSTIMER
+float MsTimer2::msecs;
+#else
 unsigned long MsTimer2::msecs;
+#endif
 void (*MsTimer2::func)();
 volatile unsigned long MsTimer2::count;
 volatile char MsTimer2::overflowing;
 volatile unsigned int MsTimer2::tcnt2;
 
+#ifdef USING_001_MSTIMER
+void MsTimer2::set(float ms, void (*f)()) {
+#else
 void MsTimer2::set(unsigned long ms, void (*f)()) {
+#endif
     float prescaler = 0.0;
 
 #if defined (__AVR_ATmega168__) || defined (__AVR_ATmega48__) || defined (__AVR_ATmega88__) || defined (__AVR_ATmega328P__) || (__AVR_ATmega1280__)
@@ -113,8 +122,14 @@ void MsTimer2::set(unsigned long ms, void (*f)()) {
     // Stop the timer.
     TPUA.TSTR.BIT.CST1 = 0U;
     // Set the counter to run at the desired frequency.
-    TPU1.TCR.BIT.TPSC = 0b011;
+
+#ifdef USING_001_MSTIMER
+    TPU1.TCR.BIT.TPSC = 0b010; // 16
+    prescaler = 16.0;
+#else
+    TPU1.TCR.BIT.TPSC = 0b011; // 64
     prescaler = 64.0;
+#endif
 
     // Set TGRA compare match to clear TCNT.
     TPU1.TCR.BIT.CCLR = 0b001;
@@ -125,26 +140,38 @@ void MsTimer2::set(unsigned long ms, void (*f)()) {
 
     // Set the count to occur on rising edge of PCLK.
     TPU1.TSR.BIT.TGFA = 0U;
-    /* Set TGI6A interrupt priority level to 4*/
+    /* Set TGI1A interrupt priority level to 4*/
     IPR(TPU1,TGI1A) = 0x4;
-    /* Enable TGI6A interrupts */
+    /* Enable TGI1A interrupts */
     IEN(TPU1,TGI1A) = 0x1;
-    /* Clear TGI6A interrupt flag */
+    /* Clear TGI1A interrupt flag */
     IR(TPU1,TGI1A) = 0x0;
     // Enable the module interrupt for the ms timer.
     TPU1.TIER.BIT.TGIEA = 1U;
 
 #endif
 #if defined (__RX600__)
-    tcnt2 = (int)((float)F_CPU * 0.001 / prescaler);
+#ifdef USING_001_MSTIMER
+    // COUNT = F(Hz) / Prescaler / ms / 0.01ms
+    tcnt2 = (int)((float)PCLK * 0.001 / prescaler * 0.01); // 0.01ms timer
+#else
+    tcnt2 = (int)((float)PCLK * 0.001 / prescaler); // 1ms timer
+#endif
 #else
     tcnt2 = 256 - (int)((float)F_CPU * 0.001 / prescaler);
 #endif
 
+#ifdef USING_001_MSTIMER
+    if (ms < 0.01)
+        msecs = 1; // minimum 0.01ms
+    else
+        msecs = (int)(ms * 100); // scale to 0.01ms count
+#else
     if (ms == 0)
         msecs = 1;
     else
         msecs = ms;
+#endif
 
     func = f;
 }

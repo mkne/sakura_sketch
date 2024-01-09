@@ -165,7 +165,7 @@ static const uint8_t A7 = 21;
 #define PIN_LED2    63
 #define PIN_LED3    64
 #define PIN_SW      65
-
+#define LED_BUILTIN PIN_LED0
 // ANALOG IO PINS -------------------------------------------------------------/
 
 /** Analog pins, header CN15. */

@@ -98,6 +98,8 @@
 #define strstr_PF strstr
 #define strlcpy_PF strlcpy
 #define memcmp_PF memcmp
+#define sprintf_P sprintf
+#define vsnprintf_P vsnprintf
 
 
 /***************************************************************************/

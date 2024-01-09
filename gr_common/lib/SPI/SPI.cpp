@@ -13,12 +13,16 @@
 
 #include "SPI.h"
 
-SPIClass SPI;
+SPIClass SPI(0);
+SPIClass SPI1(1);
 
+#ifndef __RX600__
 uint8_t SPIClass::initialized = 0;
 uint8_t SPIClass::interruptMode = 0;
 uint8_t SPIClass::interruptMask = 0;
 uint8_t SPIClass::interruptSave = 0;
+#else
+#endif
 #ifdef SPI_TRANSACTION_MISMATCH_LED
 uint8_t SPIClass::inTransactionFlag = 0;
 #endif
@@ -65,51 +69,99 @@ void SPIClass::begin()
     pinMode(MOSI, OUTPUT);
   }
 #else
-  pinMode(SCK, OUTPUT);
-  pinMode(MISO, INPUT_PULLUP);
-  pinMode(MOSI, OUTPUT);
-  pinMode(SS, OUTPUT);
+  if(channel == 0){
+	  pinMode(SCK, OUTPUT);
+	  pinMode(MISO, INPUT_PULLUP);
+	  pinMode(MOSI, OUTPUT);
+	  pinMode(SS, OUTPUT);
 
-  digitalWrite(SCK, HIGH);
-  digitalWrite(MOSI, HIGH);
-  digitalWrite(SS, HIGH);
+	  digitalWrite(SCK, HIGH);
+	  digitalWrite(MOSI, HIGH);
+	  digitalWrite(SS, HIGH);
 
-/* PWPR.PFSWE write protect off */
-  MPC.PWPR.BYTE = 0x00u;
-/* PFS register write protect off */
-  MPC.PWPR.BYTE = 0x40u;
+	/* PWPR.PFSWE write protect off */
+	  MPC.PWPR.BYTE = 0x00u;
+	/* PFS register write protect off */
+	  MPC.PWPR.BYTE = 0x40u;
 
-/* Set pin mode for MOSI, MISO, RSPCK & SSL */
-  PORTC.PMR.BIT.B5 = 1;
-  MPC.PC5PFS.BIT.PSEL = 0x0d;
-  PORTC.PMR.BIT.B6 = 1;
-  MPC.PC6PFS.BIT.PSEL = 0x0d;
-  PORTC.PMR.BIT.B7 = 1;
-  MPC.PC7PFS.BIT.PSEL = 0x0d;
-/* SS is controlled by GPIO */
-//  PORTC.PMR.BIT.B4 = 1;
-//  MPC.PC4PFS.BIT.PSEL = 0x0d;
-//  RSPI0.SPCMD0.BIT.SSLA = 0;
+	/* Set pin mode for MOSI, MISO, RSPCK & SSL */
+	  PORTC.PMR.BIT.B5 = 1;
+	  MPC.PC5PFS.BIT.PSEL = 0x0d;
+	  PORTC.PMR.BIT.B6 = 1;
+	  MPC.PC6PFS.BIT.PSEL = 0x0d;
+	  PORTC.PMR.BIT.B7 = 1;
+	  MPC.PC7PFS.BIT.PSEL = 0x0d;
+	/* SS is controlled by GPIO */
+	//  PORTC.PMR.BIT.B4 = 1;
+	//  MPC.PC4PFS.BIT.PSEL = 0x0d;
+	//  RSPI0.SPCMD0.BIT.SSLA = 0;
 
-  /* Wake RSPI unit from standby mode */
-  MSTP(RSPI0) = 0u;
+	  /* Wake RSPI unit from standby mode */
+	  MSTP(RSPI0) = 0u;
 
-  RSPI0.SPCR.BYTE = 0x08u; //SPI Stop, Set to Master Mode
-  /* Set SSL pin to active low */
-  RSPI0.SSLP.BIT.SSL0P = 0u;
-  /* Set SPPCR register */
-  RSPI0.SPPCR.BYTE = 0u;
-  /* Set bit rate to 4Mbit/s, by setting SPBR to 0 */
-  RSPI0.SPBR = SPI_CLOCK_DIV12;
-  /* Set SPDCR register */
-  RSPI0.SPDCR.BYTE = 0x20u;
-  /* Set RSPI sequence control pointer to SPCMD0 */
-  RSPI0.SPSCR.BYTE = 0u;
-  /* Set SPCMD0 register (command register 0) */
-  RSPI0.SPCMD0.WORD = 0x0700u; //MSB first, 8bit, SPI MODE0, SSL0(External)
+	  RSPI0.SPCR.BYTE = 0x08u; //SPI Stop, Set to Master Mode
+	  /* Set SSL pin to active low */
+	  RSPI0.SSLP.BIT.SSL0P = 0u;
+	  /* Set SPPCR register */
+	  RSPI0.SPPCR.BYTE = 0u;
+	  /* Set bit rate to 4Mbit/s, by setting SPBR to 0 */
+	  RSPI0.SPBR = SPI_CLOCK_DIV12;
+	  /* Set SPDCR register */
+	  RSPI0.SPDCR.BYTE = 0x20u;
+	  /* Set RSPI sequence control pointer to SPCMD0 */
+	  RSPI0.SPSCR.BYTE = 0u;
+	  /* Set SPCMD0 register (command register 0) */
+	  RSPI0.SPCMD0.WORD = 0x0700u; //MSB first, 8bit, SPI MODE0, SSL0(External)
 
-  RSPI0.SPCR.BIT.SPRIE = 1; // Enable Receive Interrupt Request
-  RSPI0.SPCR.BIT.SPE = 1; //Start SPI
+	  RSPI0.SPCR.BIT.SPRIE = 1; // Enable Receive Interrupt Request
+	  RSPI0.SPCR.BIT.SPE = 1; //Start SPI
+  } else {
+	  pinMode(49, OUTPUT); //SCK
+	  pinMode(51, INPUT_PULLUP); //MISO
+	  pinMode(50, OUTPUT); //MOSI
+	  pinMode(48, OUTPUT); //SS
+
+	  digitalWrite(49, HIGH);
+	  digitalWrite(50, HIGH);
+	  digitalWrite(48, HIGH);
+
+	/* PWPR.PFSWE write protect off */
+	  MPC.PWPR.BYTE = 0x00u;
+	/* PFS register write protect off */
+	  MPC.PWPR.BYTE = 0x40u;
+
+	/* Set pin mode for MOSI, MISO, RSPCK & SSL */
+	  PORTE.PMR.BIT.B5 = 1;
+	  MPC.PE5PFS.BIT.PSEL = 0x0d;
+	  PORTE.PMR.BIT.B6 = 1;
+	  MPC.PE6PFS.BIT.PSEL = 0x0d;
+	  PORTE.PMR.BIT.B7 = 1;
+	  MPC.PE7PFS.BIT.PSEL = 0x0d;
+	/* SS is controlled by GPIO */
+	//  PORTE.PMR.BIT.B4 = 1;
+	//  MPC.PE4PFS.BIT.PSEL = 0x0d;
+	//  RSPI1.SPCMD0.BIT.SSLA = 0;
+
+	  /* Wake RSPI unit from standby mode */
+	  MSTP(RSPI1) = 0u;
+
+	  RSPI1.SPCR.BYTE = 0x08u; //SPI Stop, Set to Master Mode
+	  /* Set SSL pin to active low */
+	  RSPI1.SSLP.BIT.SSL0P = 0u;
+	  /* Set SPPCR register */
+	  RSPI1.SPPCR.BYTE = 0u;
+	  /* Set bit rate to 4Mbit/s, by setting SPBR to 0 */
+	  RSPI1.SPBR = SPI_CLOCK_DIV12;
+	  /* Set SPDCR register */
+	  RSPI1.SPDCR.BYTE = 0x20u;
+	  /* Set RSPI sequence control pointer to SPCMD0 */
+	  RSPI1.SPSCR.BYTE = 0u;
+	  /* Set SPCMD0 register (command register 0) */
+	  RSPI1.SPCMD0.WORD = 0x0700u; //MSB first, 8bit, SPI MODE0, SSL0(External)
+
+	  RSPI1.SPCR.BIT.SPRIE = 1; // Enable Receive Interrupt Request
+	  RSPI1.SPCR.BIT.SPE = 1; //Start SPI
+  }
 
 #endif
   initialized++; // reference count
@@ -137,7 +189,11 @@ void SPIClass::end() {
 #ifndef __RX600__
     SPCR &= ~_BV(SPE);
 #else
-    RSPI0.SPCR.BIT.SPE = 0; //Stop SPI
+    if(channel == 0){
+        RSPI0.SPCR.BIT.SPE = 0; //Stop SPI
+    } else {
+        RSPI1.SPCR.BIT.SPE = 0; //Stop SPI
+    }
 #endif
     interruptMode = 0;
     #ifdef SPI_TRANSACTION_MISMATCH_LED

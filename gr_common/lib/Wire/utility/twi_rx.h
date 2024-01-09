@@ -65,6 +65,7 @@
 void twi_rx_init(uint8_t channel, int freq);
 void twi_rx_setAddress(uint8_t address);
 uint8_t twi_rx_read(uint8_t channel, uint8_t last);
+uint8_t twi_rx_read_riic(uint8_t* buf, int quantity);
 bool twi_rx_restart(uint8_t channel, uint8_t addressRW);
 bool twi_rx_start(uint8_t channel, uint8_t addressRW);
 void twi_rx_stop(uint8_t channel);

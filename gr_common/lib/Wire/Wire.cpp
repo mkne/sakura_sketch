@@ -176,14 +176,15 @@ uint8_t TwoWire::requestFrom(uint8_t address, uint8_t quantity, uint8_t sendStop
       } else {
           twi_rx_restart(g_sci_i2c_channel_table[wire_channel], address);
       }
-      for (int i = 0; i < quantity; i++) {
-          if((wire_channel == 8) && (i == 0)){
-              while(!RIIC0.ICSR2.BIT.RDRF);
-              char b = RIIC0.ICDRR; // dummy read
-          }
-          i2c_rxBuffer[wire_channel][i] = twi_rx_read(
+      if(wire_channel == 8){
+
+          read = twi_rx_read_riic(i2c_rxBuffer[wire_channel], quantity);
+      } else {
+          for (int i = 0; i < quantity; i++) {
+              i2c_rxBuffer[wire_channel][i] = twi_rx_read(
                   g_sci_i2c_channel_table[wire_channel], i == (quantity - 1));
-          read++;
+              read++;
+          }
       }
       if (sendStop == true) {
           twi_rx_stop(g_sci_i2c_channel_table[wire_channel]);

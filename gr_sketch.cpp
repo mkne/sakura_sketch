@@ -1,7 +1,7 @@
-/* GR-SAKURA Sketch Template V2.20 */
+/* GR-SAKURA Sketch Template V2.24 */
 #include <Arduino.h>
 
-#define INTERVAL 100
+#define INTERVAL 50
 
 void setup()
 {

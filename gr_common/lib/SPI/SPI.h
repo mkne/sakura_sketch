@@ -212,17 +212,24 @@ private:
 
 class SPIClass {
 public:
+  SPIClass(uint8_t ch){
+	  channel = ch;
+	  initialized = 0;
+	  interruptMode = 0; // 0=none, 1=mask, 2=global
+	  interruptMask = 0; // which interrupts to mask
+	  interruptSave = 0; // temp storage, to restore state
+  };
   // Initialize the SPI library
-  static void begin();
+  void begin();
 
   // If SPI is used from within an interrupt, this function registers
   // that interrupt with the SPI library, so beginTransaction() can
   // prevent conflicts.  The input interruptNumber is the number used
   // with attachInterrupt.  If SPI is used from a different interrupt
   // (eg, a timer), interruptNumber should be 255.
-  static void usingInterrupt(uint8_t interruptNumber);
+  void usingInterrupt(uint8_t interruptNumber);
   // And this does the opposite.
-  static void notUsingInterrupt(uint8_t interruptNumber);
+  void notUsingInterrupt(uint8_t interruptNumber);
   // Note: the usingInterrupt and notUsingInterrupt functions should
   // not to be called from ISR context or inside a transaction.
   // For details see:
@@ -232,7 +239,7 @@ public:
   // Before using SPI.transfer() or asserting chip select pins,
   // this function is used to gain exclusive access to the SPI bus
   // and configure the correct settings.
-  inline static void beginTransaction(SPISettings settings) {
+  void beginTransaction(SPISettings settings) {
     if (interruptMode > 0) {
 #ifndef __RX600__
       uint8_t sreg = SREG;
@@ -265,15 +272,22 @@ public:
     SPCR = settings.spcr;
     SPSR = settings.spsr;
 #else
-    RSPI0.SPCR.BIT.SPE = 0; //Stop SPI
-    RSPI0.SPCMD0.WORD = settings.spcmd;
-    RSPI0.SPBR = settings.spbr;
-    RSPI0.SPCR.BIT.SPE = 1; //Start SPI
+    if(channel == 0){
+        RSPI0.SPCR.BIT.SPE = 0; //Stop SPI
+        RSPI0.SPCMD0.WORD = settings.spcmd;
+        RSPI0.SPBR = settings.spbr;
+        RSPI0.SPCR.BIT.SPE = 1; //Start SPI
+    } else {
+        RSPI1.SPCR.BIT.SPE = 0; //Stop SPI
+        RSPI1.SPCMD0.WORD = settings.spcmd;
+        RSPI1.SPBR = settings.spbr;
+        RSPI1.SPCR.BIT.SPE = 1; //Start SPI
+    }
 #endif
   }
 
   // Write to the SPI bus (MOSI pin) and also receive (MISO pin)
-  inline static uint8_t transfer(uint8_t data) {
+  uint8_t transfer(uint8_t data) {
 #ifndef __RX600__
     SPDR = data;
     /*
@@ -287,19 +301,36 @@ public:
     return SPDR;
 #else
     st_rspi_spsr spsr;
-    spsr.BYTE = RSPI0.SPSR.BYTE;
-    if(spsr.BIT.OVRF == 1)
-    {
-        spsr.BIT.OVRF = 0;
-        spsr.BIT.b7 = 1;
-        spsr.BIT.b5 = 1;
-        RSPI0.SPSR.BYTE = spsr.BYTE;
-    }
-    RSPI0.SPDR.LONG = (unsigned long)data;
+    if(channel == 0){
+        spsr.BYTE = RSPI0.SPSR.BYTE;
+        if(spsr.BIT.OVRF == 1)
+        {
+            spsr.BIT.OVRF = 0;
+            spsr.BIT.b7 = 1;
+            spsr.BIT.b5 = 1;
+            RSPI0.SPSR.BYTE = spsr.BYTE;
+        }
+        RSPI0.SPDR.LONG = (unsigned long)data;
 
-    while(ICU.IR[39].BIT.IR == 0);
-    ICU.IR[39].BIT.IR = 0;
-    return (byte)RSPI0.SPDR.LONG;
+        while(ICU.IR[39].BIT.IR == 0);
+        ICU.IR[39].BIT.IR = 0;
+        return (byte)RSPI0.SPDR.LONG;
+
+    } else {
+        spsr.BYTE = RSPI1.SPSR.BYTE;
+        if(spsr.BIT.OVRF == 1)
+        {
+            spsr.BIT.OVRF = 0;
+            spsr.BIT.b7 = 1;
+            spsr.BIT.b5 = 1;
+            RSPI1.SPSR.BYTE = spsr.BYTE;
+        }
+        RSPI1.SPDR.LONG = (unsigned long)data;
+
+        while(ICU.IR[42].BIT.IR == 0);
+        ICU.IR[42].BIT.IR = 0;
+        return (byte)RSPI1.SPDR.LONG;
+    }
 #endif //__RX600__
   }
 #ifndef __RX600__
@@ -344,7 +375,7 @@ public:
 #endif //__RX600__
   // After performing a group of transfers and releasing the chip select
   // signal, this function allows others to access the SPI bus
-  inline static void endTransaction(void) {
+  void endTransaction(void) {
     #ifdef SPI_TRANSACTION_MISMATCH_LED
     if (!inTransactionFlag) {
       pinMode(SPI_TRANSACTION_MISMATCH_LED, OUTPUT);
@@ -377,46 +408,70 @@ public:
   }
 
   // Disable the SPI bus
-  static void end();
+  void end();
 
   // This function is deprecated.  New applications should use
   // beginTransaction() to configure SPI settings.
-  inline static void setBitOrder(uint8_t bitOrder) {
+  void setBitOrder(uint8_t bitOrder) {
 #ifndef __RX600__
     if (bitOrder == LSBFIRST) SPCR |= _BV(DORD);
     else SPCR &= ~(_BV(DORD));
 #else
-    RSPI0.SPCR.BIT.SPE = 0; //Stop SPI
-    if(bitOrder == LSBFIRST) {
-        RSPI0.SPCMD0.WORD |=  (1 << 12);
+    if(channel == 0){
+        RSPI0.SPCR.BIT.SPE = 0; //Stop SPI
+        if(bitOrder == LSBFIRST) {
+            RSPI0.SPCMD0.WORD |=  (1 << 12);
+        } else {
+            RSPI0.SPCMD0.WORD &= ~(1 << 12);
+        }
+        RSPI0.SPCR.BIT.SPE = 1; //Start SPI
+
     } else {
-        RSPI0.SPCMD0.WORD &= ~(1 << 12);
+        RSPI1.SPCR.BIT.SPE = 0; //Stop SPI
+        if(bitOrder == LSBFIRST) {
+            RSPI1.SPCMD0.WORD |=  (1 << 12);
+        } else {
+            RSPI1.SPCMD0.WORD &= ~(1 << 12);
+        }
+        RSPI1.SPCR.BIT.SPE = 1; //Start SPI
+
     }
-    RSPI0.SPCR.BIT.SPE = 1; //Start SPI
 
 #endif
   }
   // This function is deprecated.  New applications should use
   // beginTransaction() to configure SPI settings.
-  inline static void setDataMode(uint8_t dataMode) {
+  void setDataMode(uint8_t dataMode) {
 #ifndef __RX600__
     SPCR = (SPCR & ~SPI_MODE_MASK) | dataMode;
 #else
-    RSPI0.SPCR.BIT.SPE = 0; //Stop SPI
-    RSPI0.SPCMD0.WORD = (RSPI0.SPCMD0.WORD & ~SPI_MODE_MASK) | ((uint16_t)dataMode);
-    RSPI0.SPCR.BIT.SPE = 1; //Start SPI
+    if(channel == 0){
+        RSPI0.SPCR.BIT.SPE = 0; //Stop SPI
+        RSPI0.SPCMD0.WORD = (RSPI0.SPCMD0.WORD & ~SPI_MODE_MASK) | ((uint16_t)dataMode);
+        RSPI0.SPCR.BIT.SPE = 1; //Start SPI
+    } else {
+        RSPI1.SPCR.BIT.SPE = 0; //Stop SPI
+        RSPI1.SPCMD0.WORD = (RSPI0.SPCMD0.WORD & ~SPI_MODE_MASK) | ((uint16_t)dataMode);
+        RSPI1.SPCR.BIT.SPE = 1; //Start SPI
+    }
 #endif
   }
   // This function is deprecated.  New applications should use
   // beginTransaction() to configure SPI settings.
-  inline static void setClockDivider(uint8_t clockDiv) {
+  void setClockDivider(uint8_t clockDiv) {
 #ifndef __RX600__
     SPCR = (SPCR & ~SPI_CLOCK_MASK) | (clockDiv & SPI_CLOCK_MASK);
     SPSR = (SPSR & ~SPI_2XCLOCK_MASK) | ((clockDiv >> 2) & SPI_2XCLOCK_MASK);
 #else
-    RSPI0.SPCR.BIT.SPE = 0; //Stop SPI
-    RSPI0.SPBR = clockDiv;
-    RSPI0.SPCR.BIT.SPE = 1; //Start SPI
+    if(channel == 0){
+        RSPI0.SPCR.BIT.SPE = 0; //Stop SPI
+        RSPI0.SPBR = clockDiv;
+        RSPI0.SPCR.BIT.SPE = 1; //Start SPI
+    } else {
+        RSPI1.SPCR.BIT.SPE = 0; //Stop SPI
+        RSPI1.SPBR = clockDiv;
+        RSPI1.SPCR.BIT.SPE = 1; //Start SPI
+    }
 #endif
   }
   // These undocumented functions should not be used.  SPI.transfer()
@@ -428,15 +483,17 @@ public:
 #endif
 
 private:
-  static uint8_t initialized;
-  static uint8_t interruptMode; // 0=none, 1=mask, 2=global
-  static uint8_t interruptMask; // which interrupts to mask
-  static uint8_t interruptSave; // temp storage, to restore state
+  uint8_t channel;
+  uint8_t initialized;
+  uint8_t interruptMode; // 0=none, 1=mask, 2=global
+  uint8_t interruptMask; // which interrupts to mask
+  uint8_t interruptSave; // temp storage, to restore state
   #ifdef SPI_TRANSACTION_MISMATCH_LED
   static uint8_t inTransactionFlag;
   #endif
 };
 
 extern SPIClass SPI;
+extern SPIClass SPI1;
 
 #endif
