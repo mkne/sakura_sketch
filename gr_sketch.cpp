@@ -7,6 +7,10 @@ int XO=1; // Endschalter oben an Pin1
 int XO_reached=0; // 1=>Endposition X oben erreicht
 int Tasterstatus=0; // Variable für den Status des Tasters
 int direction=1; // -1=>down 1=>up
+int countup=0;
+int countdown=0;
+int max=0;
+int min=0;
 
 // change this to the number of steps on your motor
 #define STEPS 200
@@ -19,8 +23,10 @@ Stepper stepper(STEPS, 6, 7, 8, 9);
 
 void setup()
 {
-  // set the speed of the motor to 120 RPMs
-  stepper.setSpeed(150);
+    Serial.begin(9600); // set Baudrate for virtual COM-Port
+  
+    // set the speed of the motor to 120 RPMs
+    stepper.setSpeed(150);
   
     pinMode(XU, INPUT);
     pinMode(XO, INPUT);
@@ -32,13 +38,27 @@ void setup()
 
 void loop()
 {
-  
-  while(digitalRead(XO))
-  {
-  	stepper.step(+1);
-  }
-  while(digitalRead(XU))
-  {
-  	stepper.step(-1);
-  }
+    while(digitalRead(XO))
+    {
+        countup++;
+        //Serial.println(count);
+        stepper.step(+1);
+    }
+    //max=count;
+    Serial.print("Max: ");
+    Serial.println(countup);
+    delay(2000);
+    countup=0;
+    
+    while(digitalRead(XU))
+    {
+        countdown--;
+        //Serial.println(countdown);
+        stepper.step(-1);
+    }
+    //min=count;
+    Serial.print("Min: ");
+    Serial.println(countdown);
+    delay(2000);
+    countdown=0;
 }
