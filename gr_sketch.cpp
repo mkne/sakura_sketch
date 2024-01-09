@@ -1,8 +1,6 @@
-/* GR-SAKURA Sketch Template V2.24 */
 #include <Arduino.h>
 #include <Stepper.h>
-int SPU = 2048;
-Stepper Motor(SPU, 6,7,8,9);
+
 int XU=0; // Endschalter unten an Pin0
 int XU_reached=0; // 1=>Endposition X unten erreicht
 int XO=1; // Endschalter oben an Pin1 
@@ -10,9 +8,20 @@ int XO_reached=0; // 1=>Endposition X oben erreicht
 int Tasterstatus=0; // Variable für den Status des Tasters
 int direction=1; // -1=>down 1=>up
 
+// change this to the number of steps on your motor
+#define STEPS 200
+
+// create an instance of the stepper class, specifying
+// the number of steps of the motor and the pins it's
+// attached to
+Stepper stepper(STEPS, 6, 7, 8, 9);
+
+
 void setup()
 {
-    Motor.setSpeed(4);
+  // set the speed of the motor to 120 RPMs
+  stepper.setSpeed(150);
+  
     pinMode(XU, INPUT);
     pinMode(XO, INPUT);
     pinMode(PIN_LED0,OUTPUT);
@@ -21,30 +30,15 @@ void setup()
     pinMode(PIN_LED3,OUTPUT);
 }
 
-void loop() 
+void loop()
 {
-    XU_reached=!digitalRead(XU);
-    
-    if(direction==-1 & !XU_reached)
-    {
-		digitalWrite(PIN_LED0, 0);
-        Motor.step(-1); //...Drehe den Motor um einen einzigen Schritt.
-    }
-    else
-    {
-        digitalWrite(PIN_LED0, 1);
-        direction=1;
-    }
-    
-    XO_reached=!digitalRead(XO);
-    if(direction==1 & !XO_reached)
-    {
-        digitalWrite(PIN_LED3, 0);
-        Motor.step(1); //...Drehe den Motor um einen einzigen Schritt.
-    }
-    else
-    {
-		digitalWrite(PIN_LED3, 1);
-		direction=-1; 
-    }
+  
+  while(digitalRead(XO))
+  {
+  	stepper.step(+1);
+  }
+  while(digitalRead(XU))
+  {
+  	stepper.step(-1);
+  }
 }
